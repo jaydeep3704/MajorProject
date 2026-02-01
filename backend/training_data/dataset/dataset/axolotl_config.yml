@@ -1,0 +1,39 @@
+adapter: lora
+base_model: mistralai/Mistral-7B-v0.1
+bf16: false
+datasets:
+- path: train.jsonl
+  type: alpaca
+eval_steps: 100
+fp16: true
+gradient_accumulation_steps: 4
+gradient_checkpointing: true
+group_by_length: false
+learning_rate: 0.0002
+load_in_4bit: true
+load_in_8bit: false
+logging_steps: 1
+lora_alpha: 32
+lora_dropout: 0.05
+lora_r: 16
+lora_target_modules:
+- q_proj
+- v_proj
+- k_proj
+- o_proj
+lr_scheduler: cosine
+micro_batch_size: 1
+model_type: MistralForCausalLM
+num_epochs: 3
+optimizer: adamw_torch
+output_dir: ./youtube-chapter-lora
+sample_packing: true
+save_steps: 100
+sequence_len: 2048
+strict: false
+tf32: false
+tokenizer_type: LlamaTokenizer
+train_on_inputs: false
+val_set_size: 0.05
+warmup_steps: 10
+weight_decay: 0.01
