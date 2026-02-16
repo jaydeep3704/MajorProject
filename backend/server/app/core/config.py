@@ -1,0 +1,2 @@
+APP_NAME = "YouTube Processing API"
+DEFAULT_SEGMENT_SECONDS = 60

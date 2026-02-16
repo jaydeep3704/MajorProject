@@ -1,0 +1,161 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url=env("DATABASE_URL")
+}
+
+model Account {
+  id                 String  @id @default(cuid())
+  userId             String  @map("user_id")
+  type               String
+  provider           String
+  providerAccountId  String  @map("provider_account_id")
+  refresh_token      String? @db.Text
+  access_token       String? @db.Text
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String? @db.Text
+  session_state      String?
+ 
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+ 
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+ 
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique @map("session_token")
+  userId       String   @map("user_id")
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+ 
+  @@map("sessions")
+}
+ 
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime? @map("email_verified")
+  image         String?
+  accounts      Account[]
+  sessions      Session[]
+  courses       Course[]
+ 
+  @@map("users")
+}
+ 
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+ 
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+model Course {
+  id         String       @id @default(cuid())
+  title      String
+  youtubeUrl String
+  status     CourseStatus @default(PENDING)
+
+  // Gemini caching
+  cachedContextId String?
+  cacheCreatedAt  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId String
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  metadata    CourseMetadata?
+  transcripts TranscriptSegment[]
+  chapters    Chapter[]
+  notes       Notes?
+  quiz        Quiz?
+}
+
+
+model TranscriptSegment {
+  id        String   @id @default(cuid())
+  courseId  String
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  start     Float
+  end       Float
+  text      String
+
+  index     Int      // order of segment
+  createdAt DateTime @default(now())
+
+  @@index([courseId])
+  @@index([start])
+}
+
+
+model CourseMetadata {
+  id          String   @id @default(cuid())
+  courseId    String   @unique
+  course      Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  title       String
+  description String
+  thumbnail   String
+  duration    Int?
+
+  createdAt   DateTime @default(now())
+}
+
+model Notes {
+  id         String   @id @default(cuid())
+  courseId   String   @unique
+  course     Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  content    String   @db.Text   // Full generated HTML notes
+  summary    String?  @db.Text   // Optional short summary
+  tokenUsage Int?                 // Optional analytics
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Quiz {
+  id        String @id @default(cuid())
+  courseId  String @unique
+  course    Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  content   Json
+}
+
+
+
+
+
+model Chapter {
+  id          String   @id @default(cuid())
+  title       String
+  courseId    String
+  course      Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  start       String   // Store as string for precision
+  end         String   // Store as string for precision
+  index       Int
+  createdAt   DateTime @default(now())
+
+  @@index([courseId])
+}
+
+enum CourseStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
