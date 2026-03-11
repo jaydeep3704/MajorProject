@@ -1,11 +1,13 @@
 from fastapi import APIRouter, HTTPException
-from app.schemas.youtube import YouTubeURL, SegmentedTranscriptRequest
+from app.schemas.youtube import YouTubeURL, SegmentedTranscriptRequest,TranscriptRequest
 from app.utils.video_id import extract_video_id
+from app.services.chapter_service import generate_chapters
 from app.services.youtube_metadata import get_video_metadata
 from app.services.transcript_service import (
     get_raw_transcript,
     get_segmented_transcript
 )
+from app.services.chapter_service import split_into_sentences
 
 router = APIRouter(prefix="/youtube", tags=["YouTube"])
 
@@ -17,6 +19,14 @@ def fetch_metadata(body: YouTubeURL):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.post("/chapters")
+def fetch_chapters(body: TranscriptRequest):
+    segments = body.transcriptSegments
+    metadata= body.metadata
+    segments = split_into_sentences(segments)
+    chapters= generate_chapters(segments,metadata)
+    print(chapters)
+    return chapters
 
 @router.post("/transcript")
 def fetch_transcript(body: YouTubeURL):

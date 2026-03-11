@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { generateChaptersFromLongTranscript } from "@/lib/chapter-generator";
 import { Chapter } from "@/utils/gemini";
 
 type ParsedChapter = {
@@ -99,8 +98,10 @@ export async function GET(
     // 2️⃣ Get description
     const metadata = await prisma.courseMetadata.findUnique({
       where: { courseId },
-      select: { description: true },
+      select: { description: true, title: true },
     });
+
+
 
     if (metadata?.description) {
       const parsedChapters = parseYouTubeChapters(metadata.description);
@@ -136,30 +137,46 @@ export async function GET(
       );
     }
 
-    const transcript = transcriptSegments.map((seg) => ({
-      start: Number(seg.start),
-      end: Number(seg.end),
-      text: seg.text,
+
+    const segmentsForAPI = transcriptSegments.map(seg => ({
+      start: seg.start,
+      end: seg.end,
+      text: seg.text
     }));
 
-    // 🔥 Keep this for later when you want AI fallback
-    // const generatedChapters: Chapter[] =
-    //   await generateChaptersFromLongTranscript(transcript);
 
-    // await prisma.chapter.createMany({
-    //   data: generatedChapters.map((ch, index) => ({
-    //     courseId,
-    //     title: ch.title,
-    //     start: ch.start.toString(),
-    //     end: ch.end.toString(),
-    //     index,
-    //     keywords: ch.keywords ?? [],
-    //   })),
-    // });
+
+    const response = await fetch(`http://localhost:8000/youtube/chapters`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ transcriptSegments: segmentsForAPI, metadata: metadata })
+    })
+
+
+    if (!response.ok) {
+      throw new Error("Python chapter service failed");
+    }
+    
+    const data=await response.json()
+    if(!data){
+      return NextResponse.json({error:"Failed to create chapters"})
+    }
+
+    await prisma.chapter.createMany({
+      data: data.map((ch: any, index: number) => ({
+        courseId,
+        title: ch.title,
+        start: ch.start.toString(),
+        end: ch.end.toString(),
+        index,
+      })),
+    })
 
     return NextResponse.json({
       source: "generated",
-      chapters: [],
+      chapters:data.chapters,
     });
 
   } catch (error) {

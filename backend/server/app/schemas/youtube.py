@@ -1,5 +1,5 @@
 from pydantic import BaseModel, HttpUrl
-
+from typing import List
 class YouTubeRequest(BaseModel):
     url: HttpUrl
     segment_seconds: int = 60
@@ -25,3 +25,17 @@ class YouTubeURL(BaseModel):
 class SegmentedTranscriptRequest(BaseModel):
     url: HttpUrl
     segment_seconds: int = 60
+
+class Segment(BaseModel):
+    start: float
+    end: float
+    text: str
+
+class Metadata(BaseModel):
+    title: str
+    description: str
+    
+
+class TranscriptRequest(BaseModel):
+    transcriptSegments: List[Segment]
+    metadata:Metadata

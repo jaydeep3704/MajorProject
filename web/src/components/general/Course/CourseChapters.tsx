@@ -1,8 +1,9 @@
 "use client"
 import { Chapter } from '@/types/course';
 import React, { useEffect, useState } from 'react';
-import { PlayCircle } from 'lucide-react';
-
+import { Loader2, PlayCircle, Trash2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { useRouter } from 'next/navigation';
 interface CourseChaptersProps {
   courseId: string
   onChapterClick: (time: number) => void
@@ -13,7 +14,8 @@ export const CourseChapters = ({ courseId,onChapterClick }: CourseChaptersProps)
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [activeIndex, setActiveIndex] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
-
+  const [isDeleting,setIsDeleting]=useState(false)
+  const router=useRouter()
   useEffect(() => {
     const fetchChapters = async () => {
       try {
@@ -42,12 +44,35 @@ export const CourseChapters = ({ courseId,onChapterClick }: CourseChaptersProps)
     );
   }
 
+  function deleteCourse(){
+    if(!courseId) return
+    setIsDeleting(true)
+    try {
+      fetch('/api/courses/delete',{
+        method:'POST',
+        headers:{
+          'Content-Type':'application/json'
+        },
+        body:JSON.stringify({courseId})
+      }).then((res)=>{
+        if(res.ok){
+          router.push('/courses')
+        }
+      })
+    } catch (error) {
+      console.error('Failed to delete course:', error);
+    }
+    finally{
+      setIsDeleting(false)
+    }
+  }
+
   return (
     <div className="lg:flex-1 bg-card rounded-lg p-6 max-h-[30vh] md:max-h-[90vh] overflow-y-auto no-scrollbar  shadow-md">
-      <h2 className="text-lg font-semibold text-foreground mb-4">Course Content</h2>
+      <h2 className="text-lg font-semibold text-foreground mb-4 flex justify-between items-center">Course Content <Button onClick={deleteCourse} variant={'ghost'} disabled={isDeleting}>{isDeleting ? <Loader2 className='animate-spin'/> : <Trash2/>}</Button> </h2>
 
       <div className="space-y-2">
-        {chapters.length === 0 ? (
+        {!chapters ||  chapters.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             <p>No chapters available</p>
           </div>
@@ -92,6 +117,9 @@ export const CourseChapters = ({ courseId,onChapterClick }: CourseChaptersProps)
     </div>
   );
 };
+
+
+
 
 function formatToHHMMSS(totalSeconds: number): string {
   const hours = Math.floor(totalSeconds / 3600);
