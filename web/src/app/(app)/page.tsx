@@ -2,8 +2,9 @@ import { Footer } from "@/components/general/Footer"
 import { HeroSection } from "@/components/general/Hero/HeroSection"
 import { HowItWorks } from "@/components/general/HowItWorks"
 import { Navbar } from "@/components/general/Navbar"
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import { GraduationCap } from "lucide-react"
+import Link from "next/link"
 export default function HomePage() {
   return (
     <div>
@@ -15,10 +16,10 @@ export default function HomePage() {
           Join thousands of learners using AI to create personalized courses from YouTube videos
         </p>
         <div className="flex justify-center items-center">
-          <Button>
+          <Link href={"/courses"} className={buttonVariants({variant:"default"})}>
             <GraduationCap />
             Start Learning Today
-          </Button>
+          </Link>
         </div>
 
       </div>

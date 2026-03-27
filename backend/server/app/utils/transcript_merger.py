@@ -39,45 +39,51 @@ def format_transcript_with_punctuation(text: str) -> str:
     return text
 
 def merge_segments(segments: List, window: int = 60) -> List[Dict]:
-    """Merge transcript segments into time-based windows"""
+    """Merge transcript segments into time-based windows — supports both objects and dicts"""
     if not segments:
         return []
-    
+
+    def get_field(seg, field):
+        """Handle both dict segments (Whisper) and object segments (YouTube)"""
+        if isinstance(seg, dict):
+            return seg[field]
+        return getattr(seg, field)
+
     merged = []
     bucket = []
-    bucket_start = segments[0].start  # ✅ Use .start not ["start"]
+    bucket_start = get_field(segments[0], "start")
     bucket_end = bucket_start + window
 
     for seg in segments:
-        cleaned_text = normalize_transcript_text(seg.text)  # ✅ Use .text not ["text"]
-        
-        if seg.start <= bucket_end:  # ✅ Use .start
+        cleaned_text = normalize_transcript_text(get_field(seg, "text"))
+
+        if get_field(seg, "start") <= bucket_end:
             bucket.append(cleaned_text)
         else:
             combined_text = " ".join(bucket)
             formatted_text = format_transcript_with_punctuation(combined_text)
-            
+
             merged.append({
                 "start": round(bucket_start, 2),
                 "end": round(bucket_end, 2),
                 "text": formatted_text
             })
 
-            bucket_start = seg.start  # ✅ Use .start
+            bucket_start = get_field(seg, "start")
             bucket_end = bucket_start + window
             bucket = [cleaned_text]
 
     if bucket:
         combined_text = " ".join(bucket)
         formatted_text = format_transcript_with_punctuation(combined_text)
-        
+
         merged.append({
             "start": round(bucket_start, 2),
             "end": round(bucket_end, 2),
             "text": formatted_text
         })
-    return merged
 
+    return merged
 
 def get_raw_transcript(video_id: str) -> List[Dict]:
     """Get raw transcript as list of dicts"""

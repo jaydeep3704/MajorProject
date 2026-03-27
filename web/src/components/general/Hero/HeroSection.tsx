@@ -1,6 +1,7 @@
 import { SparklesIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { HeroImg } from "./HeroImg";
+import Link from "next/link";
 
 export function HeroSection(){
     return(
@@ -17,10 +18,10 @@ export function HeroSection(){
                         AI-powered learning platform that automatically creates chapters, quizzes, and interactive experiences from any YouTube video.
                     </p>
                     <div className="flex gap-4 items-center justify-center lg:justify-start">
-                        <Button >
+                        <Link href={"/courses"}  className={buttonVariants({variant:"default"})} >
                             <SparklesIcon/>
                             Start Learning For Free
-                        </Button>
+                        </Link>
                         <Button variant={"outline"} >
                             View Demo
                         </Button>

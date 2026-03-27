@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
+import { NotesSkeleton } from "./NotesSkeleton";
 
 export const Notes = ({ courseId }: { courseId: string }) => {
   const hasFetched = useRef(false);
@@ -22,11 +23,8 @@ export const Notes = ({ courseId }: { courseId: string }) => {
   }, [courseId]);
 
   return (
-<div className="prose prose-lg max-w-4xl mx-auto lg:flex-3 p-4 rounded-lg dark:prose-invert">
-  <div dangerouslySetInnerHTML={{ __html: notesHtml }} />
-</div>
-
-
-
+    <div className="prose prose-lg max-w-4xl mx-auto lg:flex-3 p-4 rounded-lg dark:prose-invert">
+      {(!notesHtml || notesHtml=="") ? <NotesSkeleton/> :  <div dangerouslySetInnerHTML={{ __html: notesHtml }} />}
+    </div>
   );
 };

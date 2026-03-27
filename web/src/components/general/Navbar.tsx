@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ModeToggle } from "./ModeToggle";
 import { auth, signOut } from "@/utils/auth";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
+
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -38,7 +39,7 @@ export async function Navbar() {
             <div className="flex justify-between">
                 <h1 className="flex gap-2 items-center font-bold">
                     <GraduationCap className="text-primary size-6" />
-                    <span className=" text-2xl">LearnFlow</span>
+                    <Link href={"/"} className=" text-2xl" >LearnFlow</Link>
                 </h1>
                 <div className="flex gap-4 items-center">
                     <ModeToggle />
