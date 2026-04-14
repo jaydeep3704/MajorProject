@@ -10,7 +10,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Loader2, Search } from "lucide-react";
 import { CreateCourseModal } from "@/components/general/Course/CreateCourseModal";
 import { CourseCard } from "@/components/general/Course/CourseCard";
 import type { Course } from "@/types/course";
@@ -19,12 +20,10 @@ export default function CoursesPage() {
   const router = useRouter();
 
   const [courses, setCourses] = useState<Course[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // ==========================
-  // Load courses on mount
-  // ==========================
   useEffect(() => {
     loadCourses();
   }, []);
@@ -46,13 +45,14 @@ export default function CoursesPage() {
     }
   };
 
-  // ==========================
-  // When new course is created
-  // ==========================
   const handleCourseCreated = async (newCourse: Course) => {
-     await loadCourses();      // refetch from server
-     router.refresh();
+    await loadCourses();
+    router.refresh();
   };
+
+  const filteredCourses = courses.filter((course) =>
+    course.title.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
     <section className="min-h-screen w-full px-[4%] py-4">
@@ -85,13 +85,27 @@ export default function CoursesPage() {
 
       {/* ================= Course Grid ================= */}
       <div className="max-w-7xl mx-auto">
-        <h2 className="text-2xl font-bold mb-6">Your Courses</h2>
+        <div className="flex items-center justify-between mb-6 gap-4">
+          <h2 className="text-2xl font-bold shrink-0">Your Courses</h2>
+
+          {/* Search Bar */}
+          <div className="relative w-full max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+            <Input
+              type="text"
+              placeholder="Search courses..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+        </div>
 
         {isLoading ? (
           <div className="text-center py-12">
             <Loader2 className="h-8 w-8 animate-spin mx-auto" />
           </div>
-        ) : courses.length === 0 ? (
+        ) : filteredCourses.length === 0 && courses.length === 0 ? (
           <Card className="p-12 text-center">
             <p className="text-gray-500 mb-4 text-xl">No courses yet</p>
             <Button
@@ -102,9 +116,15 @@ export default function CoursesPage() {
               Create Your First Course
             </Button>
           </Card>
+        ) : filteredCourses.length === 0 ? (
+          <Card className="p-12 text-center">
+            <p className="text-gray-500 text-xl">
+              No courses match &quot;{searchQuery}&quot;
+            </p>
+          </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {courses.map((course) => (
+            {filteredCourses.map((course) => (
               <CourseCard
                 key={course.id}
                 course={course}

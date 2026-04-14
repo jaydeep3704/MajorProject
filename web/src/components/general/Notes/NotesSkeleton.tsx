@@ -1,6 +1,6 @@
 export const NotesSkeleton = () => {
   return (
-    <div className="max-w-4xl mx-auto p-4 space-y-8 animate-pulse">
+    <div className="lg:flex-3 max-w-4xl mx-auto p-4 space-y-8 animate-pulse">
       
       {/* Executive Summary */}
       <div className="space-y-3">

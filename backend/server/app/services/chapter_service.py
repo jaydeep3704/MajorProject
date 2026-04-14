@@ -10,8 +10,8 @@ model = SentenceTransformer("all-MiniLM-L6-v2")
 
 WINDOW_SIZE = 3
 LOCAL_WINDOW = 6
-DEPTH_THRESHOLD = 0.15       # was 0.35 — too strict, barely any boundaries detected
-MIN_CHAPTER_SECONDS = 120    # was 240 — allow chapters every 2min not 4min
+DEPTH_THRESHOLD = 0.15       
+MIN_CHAPTER_SECONDS = 120    
 
 
 # -------------------------------
@@ -262,6 +262,7 @@ def generate_chapters(segments, metadata):
     if metadata_chapters:
         print(f"📋 Found {len(metadata_chapters)} chapters in description — aligning...")
         chapters = align_chapters(chapters, metadata_chapters)
+        evaluate_boundaries(chapters, metadata_chapters)
     else:
         print("📋 No description chapters found — generating titles with Gemini...")
         titles = generate_chapter_titles(chapters, metadata)
@@ -272,6 +273,48 @@ def generate_chapters(segments, metadata):
     for i, c in enumerate(chapters):
         start_fmt = f"{int(c['start'])//60:02d}:{int(c['start'])%60:02d}"
         print(f"  {i+1}. [{start_fmt}] {c.get('title', 'No title')}")
+
+        # -------------------------------
+    # EVALUATION METRICS
+    # -------------------------------
+
+    print("\n📊 Evaluation Metrics:")
+
+    # 1. Number of chapters
+    print(f"📚 Total Chapters: {len(chapters)}")
+
+    # 2. Average chapter duration
+    durations = [
+        (float(c["end"]) - float(c["start"])) 
+        for c in chapters
+    ]
+    avg_duration = sum(durations) / len(durations) if durations else 0
+    print(f"⏱️ Avg Chapter Duration: {avg_duration:.2f} seconds")
+
+    # 3. Coherence (intra-chapter similarity)
+    coherence_scores = []
+
+    for c in chapters:
+        text = c["text"]
+        sentences = text.split(". ")
+
+        if len(sentences) < 2:
+            continue
+
+        emb = model.encode(sentences, show_progress_bar=False)
+        sim_matrix = cosine_similarity(emb)
+
+        # take upper triangle mean (excluding diagonal)
+        vals = []
+        for i in range(len(sim_matrix)):
+            for j in range(i+1, len(sim_matrix)):
+                vals.append(sim_matrix[i][j])
+
+        if vals:
+            coherence_scores.append(sum(vals)/len(vals))
+
+    avg_coherence = sum(coherence_scores)/len(coherence_scores) if coherence_scores else 0
+    print(f"🧠 Avg Coherence Score: {avg_coherence:.3f}")    
 
     return chapters
 
@@ -300,3 +343,55 @@ def split_into_sentences(segments):
             })
 
     return new_segments
+
+def evaluate_boundaries(detected_chapters, metadata_chapters, tolerance=20):
+    """
+    tolerance = seconds allowed difference
+    """
+
+    if not metadata_chapters:
+        print("⚠️ No metadata chapters available for evaluation")
+        return
+
+    # Convert to boundary times (exclude first)
+    detected = [float(c["start"]) for c in detected_chapters[1:]]
+    actual = [float(c["start"]) for c in metadata_chapters[1:]]
+
+    matched = 0
+    errors = []
+
+    used = set()
+
+    for d in detected:
+        best_match = None
+        best_diff = float("inf")
+
+        for i, a in enumerate(actual):
+            if i in used:
+                continue
+
+            diff = abs(d - a)
+            if diff < best_diff:
+                best_diff = diff
+                best_match = i
+
+        if best_match is not None and best_diff <= tolerance:
+            matched += 1
+            used.add(best_match)
+            errors.append(best_diff)
+
+    precision = matched / len(detected) if detected else 0
+    recall = matched / len(actual) if actual else 0
+
+    if precision + recall == 0:
+        f1 = 0
+    else:
+        f1 = 2 * precision * recall / (precision + recall)
+
+    avg_error = sum(errors) / len(errors) if errors else 0
+
+    print("\n📊 Boundary Evaluation:")
+    print(f"🎯 Precision: {precision:.2f}")
+    print(f"🎯 Recall: {recall:.2f}")
+    print(f"🎯 F1 Score: {f1:.2f}")
+    print(f"📏 Avg Boundary Error: {avg_error:.2f} sec")

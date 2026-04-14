@@ -38,10 +38,10 @@ export async function POST(request: NextRequest) {
         url: `https://www.youtube.com/watch?v=${videoID}`,
       }),
     })
-    const metadata:Metadata = await res_metadata.json();
+    const metadata: Metadata = await res_metadata.json();
     const transcript = await res_transcript.json();
-    
-     const course = await prisma.course.create({
+
+    const course = await prisma.course.create({
       data: {
         title: CourseName,
         youtubeUrl: `https://www.youtube.com/watch?v=${videoID}`,
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
-     await prisma.courseMetadata.create({
+    await prisma.courseMetadata.create({
       data: {
         courseId: course.id,
         title: metadata.title,
@@ -72,13 +72,13 @@ export async function POST(request: NextRequest) {
       });
     }
 
-     await prisma.course.update({
+    await prisma.course.update({
       where: { id: course.id },
       data: { status: "COMPLETED" },
     });
 
-    
-    
+
+
     return NextResponse.json({
       message: "Course Created Successfully",
     });
@@ -86,5 +86,9 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.log("Failed to create course")
+    return NextResponse.json(
+      { message: "Failed to create course" },
+      { status: 500 }
+    );
   }
 }

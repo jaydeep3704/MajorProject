@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 
 import { Loader2 } from "lucide-react";
 import { LoginForm } from "@/components/forms/LoginForm";
+import { ModeToggle } from "@/components/general/ModeToggle";
 
 
 export default function Login(){
@@ -12,6 +13,7 @@ export default function Login(){
 
     return(
         <div className="lg:grid grid-cols-7 h-screen w-full ">
+            
             <div className="col-span-3 hidden lg:block">
                 <AuthDesign/> 
             </div>

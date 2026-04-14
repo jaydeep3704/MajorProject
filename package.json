@@ -1,5 +1,14 @@
 {
 	"dependencies": {
 		"groq-sdk": "^0.37.0"
-	}
+	},
+
+
+  "scripts": {
+    "dev": "concurrently -n \"API,WEB\" -c \"green,blue\" \"npm run backend\" \"npm run frontend\"",
+
+    "backend": "cd backend/server && conda run -n major_project fastapi dev",
+    "frontend": "cd web && pnpm dev"
+  }
+
 }

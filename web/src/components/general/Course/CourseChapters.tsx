@@ -1,78 +1,50 @@
 "use client"
-import { Chapter } from '@/types/course';
-import React, { useEffect, useState } from 'react';
-import { Loader2, PlayCircle, Trash2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { useRouter } from 'next/navigation';
+
+import { Chapter } from "@/types/course"
+import React, { useState } from "react"
+import { Loader2, PlayCircle, Trash2 } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { useRouter } from "next/navigation"
+
 interface CourseChaptersProps {
   courseId: string
+  chapters: Chapter[]                    // ← lifted up, no internal fetch
   onChapterClick: (time: number) => void
 }
 
+export const CourseChapters = ({ courseId, chapters, onChapterClick }: CourseChaptersProps) => {
+  const [activeIndex, setActiveIndex] = useState<number>(0)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const router = useRouter()
 
-export const CourseChapters = ({ courseId,onChapterClick }: CourseChaptersProps) => {
-  const [chapters, setChapters] = useState<Chapter[]>([]);
-  const [activeIndex, setActiveIndex] = useState<number>(0);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isDeleting,setIsDeleting]=useState(false)
-  const router=useRouter()
-  useEffect(() => {
-    const fetchChapters = async () => {
-      try {
-        setIsLoading(true);
-        const response = await fetch(`/api/courses/${courseId}/chapters`);
-        const data = await response.json();
-        setChapters(data.chapters);
-      } catch (error) {
-        console.error('Failed to fetch chapters:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchChapters();
-  }, [courseId]);
-
-  if (isLoading) {
-    return (
-      <div className="lg:flex-1 bg-card rounded-lg p-6">
-        <div className="space-y-3">
-          {[...Array(5)].map((_, i) => (
-            <div key={i} className="h-16 bg-muted rounded-lg animate-pulse" />
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  function deleteCourse(){
-    if(!courseId) return
+  async function deleteCourse() {
+    if (!courseId) return
     setIsDeleting(true)
     try {
-      fetch('/api/courses/delete',{
-        method:'POST',
-        headers:{
-          'Content-Type':'application/json'
-        },
-        body:JSON.stringify({courseId})
-      }).then((res)=>{
-        if(res.ok){
-          router.push('/courses')
-        }
+      const res = await fetch("/api/courses/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ courseId }),
       })
-    } catch (error) {
-      console.error('Failed to delete course:', error);
-    }
-    finally{
+      if (res.ok) router.push("/courses")
+    } catch (err) {
+      console.error("Failed to delete course:", err)
+    } finally {
       setIsDeleting(false)
     }
   }
 
   return (
-    <div className="lg:flex-1 bg-card rounded-lg p-6 max-h-[30vh] md:max-h-[90vh] overflow-y-auto no-scrollbar  shadow-md">
-      <h2 className="text-lg font-semibold text-foreground mb-4 flex justify-between items-center">Course Content <Button onClick={deleteCourse} variant={'ghost'} disabled={isDeleting}>{isDeleting ? <Loader2 className='animate-spin'/> : <Trash2/>}</Button> </h2>
+    <div className="lg:flex-1 bg-card rounded-lg p-6 max-h-[30vh] md:max-h-[90vh] overflow-y-auto no-scrollbar shadow-md">
+      <h2 className="text-lg font-semibold text-foreground mb-4 flex justify-between items-center">
+        Course Content
+        <Button onClick={deleteCourse} variant="ghost" disabled={isDeleting}>
+          {isDeleting ? <Loader2 className="animate-spin" /> : <Trash2 />}
+        </Button>
+      </h2>
 
       <div className="space-y-2">
-        {!chapters ||  chapters.length === 0 ? (
+        {chapters.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             <p>No chapters available</p>
           </div>
@@ -84,29 +56,27 @@ export const CourseChapters = ({ courseId,onChapterClick }: CourseChaptersProps)
                 setActiveIndex(index)
                 onChapterClick(Number.parseInt(chapter.start))
               }}
-              className={`w-full p-4 rounded-lg transition-all duration-200 text-left group ${activeIndex === index
-                  ? 'bg-primary text-primary-foreground shadow-md'
-                  : 'bg-muted hover:bg-muted/80 text-foreground hover:shadow-sm'
-                }`}
+              className={`w-full p-4 rounded-lg transition-all duration-200 text-left group ${
+                activeIndex === index
+                  ? "bg-primary text-primary-foreground shadow-md"
+                  : "bg-muted hover:bg-muted/80 text-foreground hover:shadow-sm"
+              }`}
             >
-              <div className="flex items-start justify-between gap-3 ">
+              <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
-                    <PlayCircle
-                      className={`w-4 h-4 flex-shrink-0 transition-transform ${activeIndex === index ? 'group-hover:scale-110' : ''
-                        }`}
-                    />
-                    <p className="font-medium truncate text-sm md:text-base">
-                      {chapter.title}
-                    </p>
+                    <PlayCircle className={`w-4 h-4 flex-shrink-0 ${activeIndex === index ? "group-hover:scale-110" : ""}`} />
+                    <p className="font-medium truncate text-sm md:text-base">{chapter.title}</p>
                   </div>
-                  <p className={`text-xs md:text-sm opacity-75 ${activeIndex === index ? 'text-primary-foreground' : 'text-muted-foreground'
-                    }`}>
+                  <p className={`text-xs md:text-sm opacity-75 ${
+                    activeIndex === index ? "text-primary-foreground" : "text-muted-foreground"
+                  }`}>
                     Chapter {index + 1}
                   </p>
                 </div>
-                <span className={`flex-shrink-0 text-xs md:text-sm font-mono font-semibold ${activeIndex === index ? 'text-primary-foreground' : 'text-muted-foreground'
-                  }`}>
+                <span className={`flex-shrink-0 text-xs md:text-sm font-mono font-semibold ${
+                  activeIndex === index ? "text-primary-foreground" : "text-muted-foreground"
+                }`}>
                   {formatToHHMMSS(Number.parseInt(chapter.start))}
                 </span>
               </div>
@@ -115,18 +85,13 @@ export const CourseChapters = ({ courseId,onChapterClick }: CourseChaptersProps)
         )}
       </div>
     </div>
-  );
-};
-
-
-
+  )
+}
 
 function formatToHHMMSS(totalSeconds: number): string {
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-
-  const pad = (num: number) => num.toString().padStart(2, '0');
-
-  return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+  const hours = Math.floor(totalSeconds / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const seconds = totalSeconds % 60
+  const pad = (n: number) => n.toString().padStart(2, "0")
+  return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`
 }
