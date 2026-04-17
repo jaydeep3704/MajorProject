@@ -427,4 +427,3 @@ function validateQuizContent(quiz: QuizContent): void {
     });
 }
 
-export { GET as default };

@@ -1,62 +1,47 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { Chapter } from "@/utils/gemini";
 
-type ParsedChapter = {
-  title: string;
-  start: number;
-  end: number;
-};
-
-function parseYouTubeChapters(description: string): ParsedChapter[] {
+// ✅ Extract chapters from YouTube description
+function parseYouTubeChapters(description: string) {
   const lines = description.split("\n");
 
-  // Matches:
-  // 00:00
-  // 00:00:00
-  // (00:00)
-  // (00:00:00)
-  const timestampRegex =
-    /\(?(\d{1,2}):(\d{2})(?::(\d{2}))?\)?/;
+  const regex = /\(?(\d{1,2}):(\d{2})(?::(\d{2}))?\)?/;
 
-  const chapters: ParsedChapter[] = [];
+  const chapters: {
+    title: string;
+    start: number;
+    end: number;
+  }[] = [];
 
-  for (const rawLine of lines) {
-    const line = rawLine.trim();
-    const match = line.match(timestampRegex);
+  for (const raw of lines) {
+    const line = raw.trim();
+    const match = line.match(regex);
 
     if (!match) continue;
 
     const hours = match[3] ? Number(match[1]) : 0;
-    const minutes = match[3]
-      ? Number(match[2])
-      : Number(match[1]);
-    const seconds = match[3]
-      ? Number(match[3])
-      : Number(match[2]);
+    const minutes = match[3] ? Number(match[2]) : Number(match[1]);
+    const seconds = match[3] ? Number(match[3]) : Number(match[2]);
 
-    const totalSeconds =
-      hours * 3600 + minutes * 60 + seconds;
+    const total = hours * 3600 + minutes * 60 + seconds;
 
-    // Remove timestamp (and brackets) from title
     const title = line
-      .replace(timestampRegex, "")
-      .replace(/[-–—:]+$/, "") // remove trailing separators
+      .replace(regex, "")
+      .replace(/[-–—:]+$/, "")
       .trim();
 
     if (!title) continue;
 
     chapters.push({
       title,
-      start: totalSeconds,
+      start: total,
       end: 0,
     });
   }
 
-  // Sort just in case timestamps were not ordered
+  // sort + assign end times
   chapters.sort((a, b) => a.start - b.start);
 
-  // Calculate end times
   for (let i = 0; i < chapters.length; i++) {
     chapters[i].end =
       i < chapters.length - 1
@@ -67,12 +52,11 @@ function parseYouTubeChapters(description: string): ParsedChapter[] {
   return chapters;
 }
 
-
 export async function GET(
   req: NextRequest,
-  { params }: { params: Promise<{ id?: string }> }
+  { params }: { params: { id: string } }
 ) {
-  const { id: courseId } = await params;
+  const courseId = params.id;
 
   if (!courseId) {
     return NextResponse.json(
@@ -82,33 +66,33 @@ export async function GET(
   }
 
   try {
-    // 1️⃣ Check existing
-    const existingChapters = await prisma.chapter.findMany({
+    // 1️⃣ Already exists
+    const existing = await prisma.chapter.findMany({
       where: { courseId },
       orderBy: { index: "asc" },
     });
 
-    if (existingChapters.length > 0) {
+    if (existing.length > 0) {
       return NextResponse.json({
-        source: "database",
-        chapters: existingChapters,
+        source: "db",
+        chapters: existing,
       });
     }
 
-    // 2️⃣ Get description
+    // 2️⃣ Metadata
     const metadata = await prisma.courseMetadata.findUnique({
       where: { courseId },
-      select: { description: true, title: true },
     });
 
-
-
+    // =========================
+    // 🔥 NEW: DESCRIPTION CHAPTERS FIRST
+    // =========================
     if (metadata?.description) {
-      const parsedChapters = parseYouTubeChapters(metadata.description);
+      const parsed = parseYouTubeChapters(metadata.description);
 
-      if (parsedChapters.length > 0) {
+      if (parsed.length > 0) {
         await prisma.chapter.createMany({
-          data: parsedChapters.map((ch, index) => ({
+          data: parsed.map((ch, index) => ({
             courseId,
             title: ch.title,
             start: ch.start.toString(),
@@ -118,69 +102,86 @@ export async function GET(
         });
 
         return NextResponse.json({
-          source: "youtube-description",
-          chapters: parsedChapters,
-        },{status:200});
+          source: "description",
+          chapters: parsed,
+        });
       }
     }
 
-    // 3️⃣ Fetch transcript segments
-    const transcriptSegments = await prisma.transcriptSegment.findMany({
+    // =========================
+    // 3️⃣ Transcript fallback
+    // =========================
+    const transcript = await prisma.transcriptSegment.findMany({
       where: { courseId },
       orderBy: { index: "asc" },
     });
 
-    if (!transcriptSegments.length) {
+    if (!transcript.length) {
       return NextResponse.json(
-        { error: "Transcript not found" },
+        { error: "No transcript" },
         { status: 400 }
       );
     }
 
-
-    const segmentsForAPI = transcriptSegments.map(seg => ({
-      start: seg.start,
-      end: seg.end,
-      text: seg.text
+    const segments = transcript.map((t) => ({
+      start: t.start,
+      end: t.end,
+      text: t.text,
     }));
 
-
-
-    const response = await fetch(`http://localhost:8000/youtube/chapters`, {
-      method: 'POST',
+    // =========================
+    // 4️⃣ Python ML fallback
+    // =========================
+    const response = await fetch("http://localhost:8000/youtube/chapters", {
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json'
+        "Content-Type": "application/json",
       },
-      body: JSON.stringify({ transcriptSegments: segmentsForAPI, metadata: metadata })
-    })
-
+      body: JSON.stringify({
+        transcriptSegments: segments,
+        metadata: {
+          title: metadata?.title || "",
+          description: metadata?.description || "",
+        },
+      }),
+    });
 
     if (!response.ok) {
-      throw new Error("Python chapter service failed");
-    }
-    
-    const data=await response.json()
-    if(!data){
-      return NextResponse.json({error:"Failed to create chapters"})
+      const errorText = await response.text();
+      console.error("Python error:", errorText);
+      return NextResponse.json(
+        { error: "Python chapter service failed" },
+        { status: 500 }
+      );
     }
 
+    const data = await response.json();
+
+    if (!Array.isArray(data)) {
+      return NextResponse.json(
+        { error: "Invalid chapter response" },
+        { status: 500 }
+      );
+    }
+
+    // 5️⃣ Save ML chapters
     await prisma.chapter.createMany({
       data: data.map((ch: any, index: number) => ({
         courseId,
-        title: ch.title,
-        start: ch.start.toString(),
-        end: ch.end.toString(),
+        title: ch.title || `Chapter ${index + 1}`,
+        start: String(ch.start),
+        end: String(ch.end),
         index,
       })),
-    })
+    });
 
     return NextResponse.json({
       source: "generated",
-      chapters:data.chapters,
+      chapters: data,
     });
 
-  } catch (error) {
-    console.error("Chapter generation failed:", error);
+  } catch (err) {
+    console.error("Chapter generation failed:", err);
 
     return NextResponse.json(
       { error: "Failed to generate chapters" },

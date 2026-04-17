@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/utils/auth";
 import prisma from "@/lib/prisma";
 import { groq } from "@/utils/groq";
+import { error } from "console";
 
 interface RouteContext {
     params: { id: string };
@@ -33,6 +34,8 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
     });
 
     const chapters = chaptersArray.map(c => c.title).join(", ");
+    console.log(chapters)
+    if(!chapters) return NextResponse.json({error:"Not able to generate notes (No chapters found)"},{status:400})
 
     const prompt = `
 You are an expert academic content creator.
@@ -49,6 +52,7 @@ OUTPUT REQUIREMENTS:
    - <strong> for key terms
    - <code> for technical terms
    - <blockquote> for important conceptual explanations
+4. If you cannot generate anything return an empty string
 
 STRUCTURE:
 <section id="executive-summary">

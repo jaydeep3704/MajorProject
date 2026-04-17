@@ -75,10 +75,12 @@ model Course {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
+  jobId String? @unique
   userId String
   user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
+  progress   Int?         
+  message    String?
+  stage      String?
   metadata    CourseMetadata?
   transcripts TranscriptSegment[]
   chapters    Chapter[]
