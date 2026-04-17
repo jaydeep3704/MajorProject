@@ -56,7 +56,7 @@ export async function GET(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const courseId = params.id;
+  const courseId = await params.id;
 
   if (!courseId) {
     return NextResponse.json(

@@ -1,6 +1,7 @@
 "use client";
+
 import { useParams } from "next/navigation";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { CourseChapters } from "@/components/general/Course/CourseChapters";
 import { CourseViewer } from "@/components/general/Course/CourseViewer";
 import { Notes } from "@/components/general/Notes/Notes";
@@ -11,106 +12,81 @@ import { SidePanelSkeleton } from "@/components/general/SidePanelSkeleton";
 import type { Chapter } from "@/types/course";
 
 export default function CoursePage() {
-  // ✅ FIX: no React.use nonsense
-    const params = useParams<{ id:string }>()
-    const courseId=params.id
-    const [selectedTime, setSelectedTime] = useState<number>(0);
+  const params = useParams<{ id: string }>();
+  const courseId = params.id;
 
-  // Data state
+  const [selectedTime, setSelectedTime] = useState<number>(0);
+
   const [chapters, setChapters] = useState<Chapter[]>([]);
-  const [notesHtml, setNotesHtml] = useState<string>("");
+  const [notesData, setNotesData] = useState<any>(null);
 
-  // Loading states
   const [chaptersLoading, setChaptersLoading] = useState(true);
   const [notesAndQuizLoading, setNotesAndQuizLoading] = useState(true);
 
-  const hasFetched = useRef(false);
-
+  // 🔥 RESET state when route changes
   useEffect(() => {
-    if (!params.id || hasFetched.current) return;
-    hasFetched.current = true;
+    if (!courseId) return;
+
+    setChapters([]);
+    setNotesData(null);
+    setChaptersLoading(true);
+    setNotesAndQuizLoading(true);
+  }, [courseId]);
+
+  // 🔥 MAIN FETCH
+  useEffect(() => {
+    if (!courseId) return;
 
     const controller = new AbortController();
 
-  const run = async () => {
-  let chaptersReady = false;
-
-  // ── STEP 1: Chapters ──
-  try {
-    const res = await fetch(`/api/courses/${courseId}/chapters`, {
-      signal: controller.signal,
-    });
-
-    if (!res.ok) {
-      const text = await res.text();
-      console.error("Chapters API error:", text);
-      throw new Error("Failed to fetch chapters");
-    }
-
-    const data = await res.json();
-
-    const validChapters = Array.isArray(data?.chapters) && data.chapters.length > 0;
-
-    if (!validChapters) {
-      throw new Error("Chapters not ready");
-    }
-
-    setChapters(data.chapters);
-    chaptersReady = true;
-
-  } catch (err) {
-    if ((err as any).name !== "AbortError") {
-      console.error("Failed to fetch chapters:", err);
-    }
-  } finally {
-    setChaptersLoading(false);
-  }
-
-  // ❗ STOP HERE if chapters not ready
-  if (!chaptersReady) {
-    setNotesAndQuizLoading(false);
-    return;
-  }
-
-  // ── STEP 2: Notes + Quiz ──
-  try {
-    const [notesRes, quizRes] = await Promise.all([
-      fetch(`/api/courses/${courseId}/notes`, {
+    const run = async () => {
+      // ── FETCH CHAPTERS ──
+      const chaptersPromise = fetch(`/api/courses/${courseId}/chapters`, {
         signal: controller.signal,
-      }),
-      fetch(`/api/courses/${courseId}/quiz`, {
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (Array.isArray(data?.chapters)) {
+            setChapters(data.chapters);
+          }
+        })
+        .catch((err: any) => {
+          if (err.name !== "AbortError") {
+            console.error("Chapters error:", err);
+          }
+        })
+        .finally(() => {
+          setChaptersLoading(false);
+        });
+
+      // ── FETCH NOTES ──
+      const notesPromise = fetch(`/api/courses/${courseId}/notes`, {
         signal: controller.signal,
-      }),
-    ]);
+      })
+        .then(res => res.json())
+        .then(data => {
+          setNotesData(data?.notes ?? null);
+        })
+        .catch((err: any) => {
+          if (err.name !== "AbortError") {
+            console.error("Notes error:", err);
+          }
+        })
+        .finally(() => {
+          setNotesAndQuizLoading(false);
+        });
 
-    const notesData = notesRes.ok ? await notesRes.json() : null;
-
-    if (!notesRes.ok) {
-      console.error("Notes API error:", await notesRes.text());
-    }
-
-    if (!quizRes.ok) {
-      console.error("Quiz API error:", await quizRes.text());
-    }
-
-    setNotesHtml(notesData?.notes?.content ?? "");
-
-  } catch (err) {
-    if ((err as any).name !== "AbortError") {
-      console.error("Failed to fetch notes/quiz:", err);
-    }
-  } finally {
-    setNotesAndQuizLoading(false);
-  }
-};
+      // 🔥 run BOTH independently
+      await Promise.allSettled([chaptersPromise, notesPromise]);
+    };
     run();
 
-    return () => controller.abort(); // ✅ cleanup
+    return () => controller.abort();
   }, [courseId]);
 
   return (
     <div className="min-h-screen px-[4%] mt-5">
-      {/* ── Top row ── */}
+      {/* ── Top Section ── */}
       <div className="flex md:flex-row flex-col gap-6 min-h-[80vh]">
         <CourseViewer courseId={courseId} seekTime={selectedTime} />
 
@@ -125,7 +101,7 @@ export default function CoursePage() {
         )}
       </div>
 
-      {/* ── Bottom row ── */}
+      {/* ── Bottom Section ── */}
       <div className="flex md:flex-row flex-col md:gap-20 min-h-[80vh] mt-10">
         {notesAndQuizLoading ? (
           <>
@@ -134,7 +110,12 @@ export default function CoursePage() {
           </>
         ) : (
           <>
-            <Notes notesHtml={notesHtml} />
+            <Notes
+              contentType={notesData?.contentType || "html"}
+              notesHtml={notesData?.content}
+              chapters={notesData?.chapters}
+              recap={notesData?.recap}
+            />
             <SidePanel courseId={courseId} />
           </>
         )}
